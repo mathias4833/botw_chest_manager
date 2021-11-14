@@ -10,6 +10,8 @@ Botw chest manager is a small gui tool allowing to easily manage chests. Sometim
 The creation of new chests relies on the fact that the player's location is saved every time a save is made.
 By going to the place where you want to add a new chest, and by performing a manual save, you can add a chest using the tool.
 
+The tool can automatically extract the coordinates from a save file, thanks to botw-save-editor package. for security reasons, only the last save will be read by the app.
+
 ![screenshot gui](screenshots/app_03.png)
 
 **If you want to use this tool, I strongly encourage you to take a look at this tutorial on how to install and use Botw Chest Manager.**
