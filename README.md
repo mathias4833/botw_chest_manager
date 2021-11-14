@@ -1,7 +1,6 @@
 # Botw Chest Manager
 
-Botw chest manager is a small gui tool allowing to easily manage chests. Sometimes, Ice Spear can be very time consuming when all you want to do is add a new chest, or edit the content of an existing chest.
-
+Botw chest manager is a small gui tool allowing to easily manage chests. Sometimes Ice Spear can be very time consuming when adding a simple chest. The purpose of this light tool is to add a new chest, or edit the content of an existing chest way faster than Ice Spear.
 ![screenshot gui](screenshots/app_01.png)
 ![screenshot gui](screenshots/app_02.png)
 
@@ -28,7 +27,7 @@ For now, the tool has some limitations:
   - This will download the following packages: `oead`, `pyqt5`, `botw-save-editor`
 - Open the tool with `python3 main.py`
 - Set your paths in the Settings before trying to load any map. It will fail if it has no paths.
-  - the paths needed are the DLC folder and the save folder
+  - The paths needed are the DLC folder and the save folder
 - Restart the tool in order to apply newly settings
 
 ## Known issues
