@@ -13,7 +13,7 @@ The tool can automatically extract the coordinates from a save file, thanks to b
 
 ![screenshot gui](screenshots/app_03.png)
 
-**If you want to use this tool, I strongly encourage you to take a look at this tutorial on how to install and use Botw Chest Manager.**
+**If you want to use this tool, I strongly encourage you to take a look at [this tutorial](https://gamebanana.com/tuts/14522) on how to install and use Botw Chest Manager.**
 
 ## Limitations
 
