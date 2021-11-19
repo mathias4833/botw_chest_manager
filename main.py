@@ -9,6 +9,7 @@ import oead
 from PyQt5.QtCore import Qt, QPoint, QRect, QSize
 from PyQt5.QtGui import QPen, QPixmap, QPainter
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
+
 from saveEditor import save
 
 from gui import Ui_MainWindow
@@ -76,20 +77,24 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEdit_3.setEnabled(editobj)
         self.lineEdit_4.setEnabled(editobj)
         self.lineEdit_5.setEnabled(editobj)
+        self.lineEdit_7.setEnabled(editobj)
+        self.lineEdit_8.setEnabled(editobj)
 
         self.plainTextEdit.setEnabled(editobj)
 
-    def confirm_box(self):
+    def confirm_box(self, msg="Are you sure? You will not be able to undo this action"):
         box = QMessageBox
-        answer = box.question(self, 'Confirm', "Are you sure? You will not be able to undo this action", box.Yes | box.No)
+        answer = box.question(self, 'Confirm', msg, box.Yes | box.No)
         return answer == box.Yes
 
     def update_object(self):
-        self.lineEdit_2.setText(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["DropActor"])
-        self.lineEdit.setText(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["UnitConfigName"])
+        self.lineEdit.setText(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["DropActor"])
+        self.lineEdit_2.setText(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["UnitConfigName"])
         self.lineEdit_3.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][0]))
         self.lineEdit_4.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][1]))
         self.lineEdit_5.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][2]))
+        self.lineEdit_7.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["HashId"]))
+        self.lineEdit_8.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["SRTHash"]))
         self.plainTextEdit.setPlainText(oead.byml.to_text(self.data[self.index[0]]["data"]["Objs"][self.index[1]]))
 
     def update_all(self):
@@ -104,6 +109,8 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEdit_3.clear()
         self.lineEdit_4.clear()
         self.lineEdit_5.clear()
+        self.lineEdit_7.clear()
+        self.lineEdit_8.clear()
         self.plainTextEdit.clear()
         if self.index[0] != -1:
             for item in self.data[self.index[0]]["data"]["Objs"]:
@@ -111,7 +118,20 @@ class Window(QMainWindow, Ui_MainWindow):
                     self.listWidget_2.addItem(item["UnitConfigName"])
                     self.listWidget_2.item(self.listWidget_2.count() - 1).setHidden(True)
                 else:
-                    self.listWidget_2.addItem(item["!Parameters"]["DropActor"])
+                    self.listWidget_2.addItem([
+                        item["!Parameters"]["DropActor"],
+                        str(item["UnitConfigName"]),
+                        str(hex(int(item["HashId"]))),
+                        str(item["HashId"]),
+                    ][self.comboBox.currentIndex()])
+                    try:
+                        if not re.search(self.lineEdit_6.text(), self.listWidget_2.item(self.listWidget_2.count() - 1).text()):
+                            self.listWidget_2.item(self.listWidget_2.count() - 1).setHidden(True)
+                    except re.error:
+                        print("regex expression unvalid")
+
+    def apply_filter(self):
+        self.update_map()
 
     def select_object(self):
         self.index[1] = self.listWidget_2.currentRow()
@@ -170,22 +190,24 @@ class Window(QMainWindow, Ui_MainWindow):
         self.data = folder_data
         self.update_all()
 
-    def import_vanilla(self, vanilla):
-        pattern = vanilla.listWidget.currentItem().text().split("_")[0]
-        smubin_path = os.path.join(self.config["aoc_folder"], "content", "0010", "Map", "MainField", pattern, f"{vanilla.listWidget.currentItem().text()}.smubin")
+    def import_vanilla(self, filename):
+        pattern = filename.split("_")[0]
+        smubin_path = os.path.join(self.config["aoc_folder"], "content", "0010", "Map", "MainField", pattern, f"{filename}.smubin")
         if not os.path.isfile(smubin_path):
             print("The file does not exist !")
-            vanilla.close()
             return
         with open(smubin_path, "rb") as f:
             vanilla_data = f.read()
         self.data.append({
             "data": oead.byml.from_binary(oead.yaz0.decompress(vanilla_data)),
-            "name": vanilla.listWidget.currentItem().text(),
+            "name": filename,
             "pattern": pattern
         })
-        vanilla.close()
         self.update_all()
+
+    def select_vanilla(self, vanilla):
+        self.import_vanilla(vanilla.listWidget.currentItem().text())
+        vanilla.close()
 
     def open_vanilla_clicked(self):
         vanilla = VanillaDialog(self)
@@ -193,7 +215,7 @@ class Window(QMainWindow, Ui_MainWindow):
             for i in range(1, 9):
                 for y in ["Dynamic", "Static"]:
                     vanilla.listWidget.addItem(f"{letter}-{i}_{y}")
-        vanilla.listWidget.clicked.connect(lambda: self.import_vanilla(vanilla))
+        vanilla.listWidget.clicked.connect(lambda: self.select_vanilla(vanilla))
         vanilla.exec()
 
     def save_map_clicked(self):
@@ -228,12 +250,24 @@ class Window(QMainWindow, Ui_MainWindow):
         except ValueError:
             print("coordinates aren't numbers !")
             return
+        try:
+            hashid = oead.U32(int(self.lineEdit_7.text()))
+            strhash = oead.S32(int(self.lineEdit_8.text()))
+        except ValueError:
+            print("incorrect Hash !")
+            return
 
-        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["DropActor"] = self.lineEdit_2.text()
-        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["UnitConfigName"] = self.lineEdit.text()
+        if not self.lineEdit_2.text().startswith("TBox"):
+            if not self.confirm_box("UnitConfigName no longer begins with \"TBox\". It will no longer be seen by the tool. Are you sure you want to continue?"):
+                return
+
+        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["DropActor"] = self.lineEdit.text()
+        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["UnitConfigName"] = self.lineEdit_2.text()
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][0] = valx
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][1] = valy
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][2] = valz
+        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["HashId"] = hashid
+        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["SRTHash"] = strhash
         self.update_map()
 
     def save_yml_clicked(self):
@@ -268,7 +302,9 @@ class Window(QMainWindow, Ui_MainWindow):
                 self.lineEdit_4.setText(str(converted_sav["PlayerSavePos"][1]))
                 self.lineEdit_5.setText(str(converted_sav["PlayerSavePos"][2]))
             else:
-                print(f"Not the same area! The last save area is: {grid_value}")
+                vanilla_save = grid_value + "_" + self.data[self.index[0]]["name"].split("_")[1]
+                if self.confirm_box(f"You are not in the same zone as the save file. Import {vanilla_save}?"):
+                    self.import_vanilla(vanilla_save)
 
     def create_object_clicked(self):
         random_hash = uuid.uuid4()
@@ -305,9 +341,10 @@ class Window(QMainWindow, Ui_MainWindow):
         self.pushButton_8.clicked.connect(self.delete_object_clicked)
         self.pushButton_9.clicked.connect(self.save_yml_clicked)
         self.pushButton_10.clicked.connect(self.delete_map_clicked)
-
         self.listWidget.currentItemChanged.connect(self.select_list)
         self.listWidget_2.currentItemChanged.connect(self.select_object)
+        self.comboBox.currentIndexChanged.connect(self.apply_filter)
+        self.lineEdit_6.textChanged.connect(self.apply_filter)
 
 
 if __name__ == "__main__":
