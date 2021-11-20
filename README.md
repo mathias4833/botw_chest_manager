@@ -32,6 +32,6 @@ For now, the tool has some limitations:
 
 ## Known issues
 
-- If an object is outside of the area it should belong to, the chest preview on the app map will likely be inverted.
+- If an object is outside the area it should belong to, the chest preview on the app map will likely be inverted.
 
 Keep in mind that this is only the beta version, and therefore bugs can occur! Any feedback is greatly appreciated!
