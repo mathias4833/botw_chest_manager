@@ -7,7 +7,7 @@ import uuid
 
 import oead
 from PyQt5.QtCore import Qt, QPoint, QRect, QSize
-from PyQt5.QtGui import QPen, QPixmap, QPainter
+from PyQt5.QtGui import QPen, QPixmap, QPainter, QPolygon, QTransform
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
 
 from saveEditor import save
@@ -50,7 +50,6 @@ class Window(QMainWindow, Ui_MainWindow):
             painter.drawPixmap(rectange, pixmap)
 
             if self.index[1] != -1:
-
                 coordx = ((float(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][0]) % 1000) / 1000) * size
                 coordz = ((float(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][2]) % 1000) / 1000) * size
 
@@ -58,13 +57,29 @@ class Window(QMainWindow, Ui_MainWindow):
                     coordx = size - coordx
                 if coordz < 0:
                     coordz = size - coordz
-                pen = QPen(Qt.red, 6)
-                painter.setPen(pen)
                 location_x = round(left + coordx)
                 location_y = round(top + coordz)
-                painter.drawEllipse(QPoint(location_x, location_y), 2, 2)
 
-    def disable_buttons(self, editobj=False, editlist=False):
+                if self.lineEdit_9.isEnabled():
+                    if isinstance(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"], oead.F32):
+                        rotation = math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"])
+                    else:
+                        rotation = math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1])
+                else:
+                    rotation = 0
+
+                painter.setPen(QPen(Qt.red, 1))
+                painter.setBrush(Qt.red)
+                painter.setRenderHint(QPainter.Antialiasing, True)
+                painter.setTransform(QTransform().translate(location_x, location_y).rotate(rotation))
+                painter.drawPolygon(QPolygon([
+                    QPoint(-6, 7),
+                    QPoint(0, 4),
+                    QPoint(6, 7),
+                    QPoint(0, -7)
+                ]))
+
+    def disable_buttons(self, editobj=False, editlist=False, rotation=False):
         self.pushButton_5.setEnabled(editobj)
         self.pushButton_6.setEnabled(editobj)
         self.pushButton_7.setEnabled(editlist)
@@ -79,6 +94,8 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEdit_5.setEnabled(editobj)
         self.lineEdit_7.setEnabled(editobj)
         self.lineEdit_8.setEnabled(editobj)
+        if not rotation:
+            self.lineEdit_9.setEnabled(False)
 
         self.plainTextEdit.setEnabled(editobj)
 
@@ -96,6 +113,15 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEdit_7.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["HashId"]))
         self.lineEdit_8.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["SRTHash"]))
         self.plainTextEdit.setPlainText(oead.byml.to_text(self.data[self.index[0]]["data"]["Objs"][self.index[1]]))
+        try:
+            if isinstance(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"], oead.F32):
+                self.lineEdit_9.setText(str(round(math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"]), 9)))
+            else:
+                self.lineEdit_9.setText(str(round(math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1]), 9)))
+            self.lineEdit_9.setEnabled(True)
+        except KeyError:
+            self.lineEdit_9.clear()
+            self.lineEdit_9.setEnabled(False)
 
     def update_all(self):
         self.listWidget.clear()
@@ -111,6 +137,7 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEdit_5.clear()
         self.lineEdit_7.clear()
         self.lineEdit_8.clear()
+        self.lineEdit_9.clear()
         self.plainTextEdit.clear()
         if self.index[0] != -1:
             for item in self.data[self.index[0]]["data"]["Objs"]:
@@ -128,7 +155,8 @@ class Window(QMainWindow, Ui_MainWindow):
                         if not re.search(self.lineEdit_6.text(), self.listWidget_2.item(self.listWidget_2.count() - 1).text()):
                             self.listWidget_2.item(self.listWidget_2.count() - 1).setHidden(True)
                     except re.error:
-                        print("regex expression unvalid")
+                        pass
+        self.update()
 
     def apply_filter(self):
         self.update_map()
@@ -137,7 +165,7 @@ class Window(QMainWindow, Ui_MainWindow):
         self.index[1] = self.listWidget_2.currentRow()
         if self.index[1] != -1 and self.index[0] != -1:
             self.update_object()
-            self.disable_buttons(editobj=True, editlist=True)
+            self.disable_buttons(editobj=True, editlist=True, rotation=True)
             self.update()
         elif self.index[0] != -1:
             self.disable_buttons(editlist=True)
@@ -248,7 +276,7 @@ class Window(QMainWindow, Ui_MainWindow):
             valy = oead.F32(float(self.lineEdit_4.text()))
             valz = oead.F32(float(self.lineEdit_5.text()))
         except ValueError:
-            print("coordinates aren't numbers !")
+            print("incorrect coordinates !")
             return
         try:
             hashid = oead.U32(int(self.lineEdit_7.text()))
@@ -260,6 +288,16 @@ class Window(QMainWindow, Ui_MainWindow):
         if not self.lineEdit_2.text().startswith("TBox"):
             if not self.confirm_box("UnitConfigName no longer begins with \"TBox\". It will no longer be seen by the tool. Are you sure you want to continue?"):
                 return
+
+        if self.lineEdit_9.text() != "":
+            try:
+                rotation = oead.F32(math.radians(float(self.lineEdit_9.text())))
+                if isinstance(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"], oead.F32):
+                    self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"] = rotation
+                else:
+                    self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1] = rotation
+            except ValueError:
+                print("incorrect rotation !")
 
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["DropActor"] = self.lineEdit.text()
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["UnitConfigName"] = self.lineEdit_2.text()
@@ -311,7 +349,7 @@ class Window(QMainWindow, Ui_MainWindow):
         new_chest = """
             '!Parameters': {{DropActor: Weapon_Sword_001, EnableRevival: false, IsInGround: false, SharpWeaponJudgeType: 0}}
             HashId: !u {}
-            Rotate: [0.0, 0.0, 0.0]
+            Rotate: 0.0
             SRTHash: {}
             Translate: [0.0, 0.0, 0.0]
             UnitConfigName: TBox_Field_Iron
