@@ -62,11 +62,11 @@ class Window(QMainWindow, Ui_MainWindow):
 
                 if self.lineEdit_9.isEnabled():
                     if isinstance(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"], oead.F32):
-                        rotation = math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"])
+                        rotation = 180 - math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"])
                     else:
-                        rotation = math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1])
+                        rotation = 180 - math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1])
                 else:
-                    rotation = 0
+                    rotation = 180
 
                 painter.setPen(QPen(Qt.red, 1))
                 painter.setBrush(Qt.red)
