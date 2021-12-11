@@ -7,7 +7,7 @@ import uuid
 
 import oead
 from PyQt5.QtCore import Qt, QPoint, QRect, QSize
-from PyQt5.QtGui import QPen, QPixmap, QPainter, QPolygon, QTransform
+from PyQt5.QtGui import QPen, QPixmap, QPainter, QPolygon, QTransform, QColor
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog, QMessageBox
 
 from saveEditor import save
@@ -26,10 +26,12 @@ class Window(QMainWindow, Ui_MainWindow):
 
         self.data = []
         self.index = [-1, -1]
+        self.unsaved_changes = False
 
         self.setupUi(self)
         self.init_events()
 
+        self.check_unsaved_changes()
         self.disable_buttons()
 
     def paintEvent(self, event):
@@ -50,8 +52,14 @@ class Window(QMainWindow, Ui_MainWindow):
             painter.drawPixmap(rectange, pixmap)
 
             if self.index[1] != -1:
-                coordx = ((float(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][0]) % 1000) / 1000) * size
-                coordz = ((float(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][2]) % 1000) / 1000) * size
+                if self.unsaved_changes:
+                    painter.setBrush(QColor(255, 127, 0))
+                    painter.drawEllipse(self.tabWidget.geometry().left() + self.tabWidget.geometry().width() - 20, self.tabWidget.geometry().top() + 5, 12, 12)
+
+                coordx = ((float(
+                    self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][0]) % 1000) / 1000) * size
+                coordz = ((float(
+                    self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][2]) % 1000) / 1000) * size
 
                 if coordx < 0:
                     coordx = size - coordx
@@ -64,7 +72,8 @@ class Window(QMainWindow, Ui_MainWindow):
                     if isinstance(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"], oead.F32):
                         rotation = 180 - math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"])
                     else:
-                        rotation = 180 - math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1])
+                        rotation = 180 - math.degrees(
+                            self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1])
                 else:
                     rotation = 180
 
@@ -86,7 +95,6 @@ class Window(QMainWindow, Ui_MainWindow):
         self.pushButton_8.setEnabled(editobj)
         self.pushButton_9.setEnabled(editobj)
         self.pushButton_10.setEnabled(editlist)
-
         self.lineEdit.setEnabled(editobj)
         self.lineEdit_2.setEnabled(editobj)
         self.lineEdit_3.setEnabled(editobj)
@@ -94,10 +102,14 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEdit_5.setEnabled(editobj)
         self.lineEdit_7.setEnabled(editobj)
         self.lineEdit_8.setEnabled(editobj)
+        self.checkBox.setEnabled(editobj)
+        self.checkBox_2.setEnabled(editobj)
+        self.checkBox_3.setEnabled(editobj)
+        self.spinBox.setEnabled(editobj)
+        self.label_14.setEnabled(editobj)
+        self.plainTextEdit.setEnabled(editobj)
         if not rotation:
             self.lineEdit_9.setEnabled(False)
-
-        self.plainTextEdit.setEnabled(editobj)
 
     def confirm_box(self, msg="Are you sure? You will not be able to undo this action"):
         box = QMessageBox
@@ -113,15 +125,32 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEdit_7.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["HashId"]))
         self.lineEdit_8.setText(str(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["SRTHash"]))
         self.plainTextEdit.setPlainText(oead.byml.to_text(self.data[self.index[0]]["data"]["Objs"][self.index[1]]))
-        try:
+
+        self.checkBox.setChecked(False)
+        self.checkBox_2.setChecked(False)
+        self.checkBox_2.setChecked(False)
+        self.spinBox.setValue(0)
+        flags = self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]
+        if "EnableRevival" in flags:
+            self.checkBox.setChecked(flags["EnableRevival"])
+        if "IsHardModeActor" in flags:
+            self.checkBox_2.setChecked(flags["IsHardModeActor"])
+        if "IsInGround" in flags:
+            self.checkBox_3.setChecked(flags["IsInGround"])
+        if "SharpWeaponJudgeType" in flags:
+            self.spinBox.setValue(flags["SharpWeaponJudgeType"])
+        if "Rotate" in self.data[self.index[0]]["data"]["Objs"][self.index[1]]:
             if isinstance(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"], oead.F32):
-                self.lineEdit_9.setText(str(round(math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"]), 9)))
+                self.lineEdit_9.setText(
+                    str(round(math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"]), 9)))
             else:
-                self.lineEdit_9.setText(str(round(math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1]), 9)))
+                self.lineEdit_9.setText(
+                    str(round(math.degrees(self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Rotate"][1]), 9)))
             self.lineEdit_9.setEnabled(True)
-        except KeyError:
+        else:
             self.lineEdit_9.clear()
             self.lineEdit_9.setEnabled(False)
+        self.unsaved_changes = False
 
     def update_all(self):
         self.listWidget.clear()
@@ -138,7 +167,12 @@ class Window(QMainWindow, Ui_MainWindow):
         self.lineEdit_7.clear()
         self.lineEdit_8.clear()
         self.lineEdit_9.clear()
+        self.checkBox.setChecked(False)
+        self.checkBox_2.setChecked(False)
+        self.checkBox_3.setChecked(False)
+        self.spinBox.setValue(0)
         self.plainTextEdit.clear()
+
         if self.index[0] != -1:
             for item in self.data[self.index[0]]["data"]["Objs"]:
                 if len(re.findall("TBox", item["UnitConfigName"])) == 0:
@@ -146,13 +180,14 @@ class Window(QMainWindow, Ui_MainWindow):
                     self.listWidget_2.item(self.listWidget_2.count() - 1).setHidden(True)
                 else:
                     self.listWidget_2.addItem([
-                        item["!Parameters"]["DropActor"],
-                        str(item["UnitConfigName"]),
-                        str(hex(int(item["HashId"]))),
-                        str(item["HashId"]),
-                    ][self.comboBox.currentIndex()])
+                                                  item["!Parameters"]["DropActor"],
+                                                  str(item["UnitConfigName"]),
+                                                  str(hex(int(item["HashId"]))),
+                                                  str(item["HashId"]),
+                                              ][self.comboBox.currentIndex()])
                     try:
-                        if not re.search(self.lineEdit_6.text(), self.listWidget_2.item(self.listWidget_2.count() - 1).text()):
+                        if not re.search(self.lineEdit_6.text(),
+                                         self.listWidget_2.item(self.listWidget_2.count() - 1).text()):
                             self.listWidget_2.item(self.listWidget_2.count() - 1).setHidden(True)
                     except re.error:
                         pass
@@ -182,14 +217,14 @@ class Window(QMainWindow, Ui_MainWindow):
             self.disable_buttons()
 
     def open_custom_clicked(self):
-        aoc = str(QFileDialog.getExistingDirectory(self, "Select `aoc` directory"))
-        if aoc == "":
+        mod_folder = str(QFileDialog.getExistingDirectory(self, "Select the root folder of your mod"))
+        if mod_folder == "":
             print("None selected")
             return
-        aoc = os.path.abspath(aoc)
-        complete_path = os.path.join(aoc, "0010", "Map", "MainField")
+        mod_folder = os.path.abspath(mod_folder)
+        complete_path = os.path.join(mod_folder, "aoc", "0010", "Map", "MainField")
         if not os.path.isdir(complete_path):
-            print("Not valid directory")
+            print("Invalid directory ")
             return
 
         folder_data = []
@@ -218,9 +253,15 @@ class Window(QMainWindow, Ui_MainWindow):
         self.data = folder_data
         self.update_all()
 
-    def import_vanilla(self, filename):
+    def import_vanilla(self, filename, index=-1):
+        if 0 <= index <= 1:
+            grid = self.get_position()[3]
+            if not grid:
+                return
+            filename = grid + "_" + ["Dynamic", "Static"][index]
         pattern = filename.split("_")[0]
-        smubin_path = os.path.join(self.config["aoc_folder"], "content", "0010", "Map", "MainField", pattern, f"{filename}.smubin")
+        smubin_path = os.path.join(self.config["aoc_folder"], "content", "0010", "Map", "MainField", pattern,
+                                   f"{filename}.smubin")
         if not os.path.isfile(smubin_path):
             print("The file does not exist !")
             return
@@ -234,12 +275,14 @@ class Window(QMainWindow, Ui_MainWindow):
         self.update_all()
 
     def select_vanilla(self, vanilla):
-        self.import_vanilla(vanilla.listWidget.currentItem().text())
+        self.import_vanilla(vanilla.listWidget.currentItem().text(), vanilla.listWidget.currentRow())
         vanilla.close()
 
     def open_vanilla_clicked(self):
         vanilla = VanillaDialog(self)
-        for letter in [chr(i) for i in range(ord('A'), ord('J')+1)]:
+        vanilla.listWidget.addItem(f"Map region from save file (Dynamic)")
+        vanilla.listWidget.addItem(f"Map region from save file (Static)")
+        for letter in [chr(i) for i in range(ord('A'), ord('J') + 1)]:
             for i in range(1, 9):
                 for y in ["Dynamic", "Static"]:
                     vanilla.listWidget.addItem(f"{letter}-{i}_{y}")
@@ -247,12 +290,12 @@ class Window(QMainWindow, Ui_MainWindow):
         vanilla.exec()
 
     def save_map_clicked(self):
-        aoc = str(QFileDialog.getExistingDirectory(self, "Select `aoc` directory"))
-        if aoc == "":
+        mod_folder = str(QFileDialog.getExistingDirectory(self, "Select the root folder of your mod"))
+        if mod_folder == "":
             print("None selected")
             return
-        aoc = os.path.abspath(aoc)
-        complete_path = os.path.join(aoc, "0010", "Map", "MainField")
+        mod_folder = os.path.abspath(mod_folder)
+        complete_path = os.path.join(mod_folder, "aoc", "0010", "Map", "MainField")
         if not os.path.isdir(complete_path):
             os.makedirs(complete_path)
         for item in self.data:
@@ -262,6 +305,19 @@ class Window(QMainWindow, Ui_MainWindow):
                 os.makedirs(full_path)
             with open(os.path.join(full_path, f"{item['name']}.smubin"), "bw") as f:
                 f.write(data_converted)
+        content_path = os.path.join(mod_folder, "content")
+        if not os.path.isdir(content_path):
+            os.makedirs(content_path)
+        rules_path = os.path.join(mod_folder, "rules.txt")
+        if not os.path.isfile(rules_path):
+            text = ("[Definition]\n"
+                    "titleIds = 00050000101C9300,00050000101C9400,00050000101C9500\n"
+                    f"name = {os.path.basename(mod_folder)}\n"
+                    f"path = \"The Legend of Zelda: Breath of the Wild/Game Mods/{os.path.basename(mod_folder)}\"\n"
+                    f"description = {os.path.basename(mod_folder)}\n"
+                    "version = 3")
+            with open(rules_path, "w") as f:
+                f.write(text)
         print("saved")
 
     def settings_clicked(self):
@@ -284,9 +340,9 @@ class Window(QMainWindow, Ui_MainWindow):
         except ValueError:
             print("incorrect Hash !")
             return
-
         if not self.lineEdit_2.text().startswith("TBox"):
-            if not self.confirm_box("UnitConfigName no longer begins with \"TBox\". It will no longer be seen by the tool. Are you sure you want to continue?"):
+            if not self.confirm_box(
+                    "UnitConfigName no longer begins with \"TBox\". It will no longer be seen by the tool. Are you sure you want to continue?"):
                 return
 
         if self.lineEdit_9.text() != "":
@@ -299,6 +355,10 @@ class Window(QMainWindow, Ui_MainWindow):
             except ValueError:
                 print("incorrect rotation !")
 
+        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["EnableRevival"] = self.checkBox.isChecked()
+        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["IsHardModeActor"] = self.checkBox_2.isChecked()
+        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["IsInGround"] = self.checkBox_3.isChecked()
+        self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["SharpWeaponJudgeType"] = oead.S32(self.spinBox.value())
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["!Parameters"]["DropActor"] = self.lineEdit.text()
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["UnitConfigName"] = self.lineEdit_2.text()
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][0] = valx
@@ -306,13 +366,17 @@ class Window(QMainWindow, Ui_MainWindow):
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["Translate"][2] = valz
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["HashId"] = hashid
         self.data[self.index[0]]["data"]["Objs"][self.index[1]]["SRTHash"] = strhash
+        index = self.index[1]
         self.update_map()
+        self.listWidget_2.setCurrentRow(index)
 
     def save_yml_clicked(self):
         self.data[self.index[0]]["data"]["Objs"][self.index[1]] = oead.byml.from_text(self.plainTextEdit.toPlainText())
+        index = self.index[1]
         self.update_map()
+        self.listWidget_2.setCurrentRow(index)
 
-    def get_position_clicked(self):
+    def get_position(self):
         save_path = os.path.join(self.config["save_folder"], "user")
         users = os.listdir(save_path)
         last_save = ""
@@ -330,19 +394,27 @@ class Window(QMainWindow, Ui_MainWindow):
                                 last_save = caption_path
         save_file = os.path.join(os.path.dirname(last_save), "game_data.sav")
         print(save_file)
-        if os.path.isfile(save_file):
-            converted_sav = save.parseSaveFile(save_file, skip_bools=False)
-            grid_x = min(10, max(1, math.trunc((converted_sav["PlayerSavePos"][0] + 4974.629) / 9949.258 * 10 + 1)))
-            grid_z = min(8, max(1, math.trunc((converted_sav["PlayerSavePos"][2] + 3974.629) / 7949.258 * 8 + 1)))
-            grid_value = f"{chr(64 + grid_x)}-{grid_z}"
-            if grid_value == self.data[self.index[0]]["pattern"]:
-                self.lineEdit_3.setText(str(converted_sav["PlayerSavePos"][0]))
-                self.lineEdit_4.setText(str(converted_sav["PlayerSavePos"][1]))
-                self.lineEdit_5.setText(str(converted_sav["PlayerSavePos"][2]))
-            else:
-                vanilla_save = grid_value + "_" + self.data[self.index[0]]["name"].split("_")[1]
-                if self.confirm_box(f"You are not in the same zone as the save file. Import {vanilla_save}?"):
-                    self.import_vanilla(vanilla_save)
+        if not os.path.isfile(save_file):
+            return False
+        converted_sav = save.parseSaveFile(save_file, skip_bools=False)
+        grid_x = min(10, max(1, math.trunc((converted_sav["PlayerSavePos"][0] + 4974.629) / 9949.258 * 10 + 1)))
+        grid_z = min(8, max(1, math.trunc((converted_sav["PlayerSavePos"][2] + 3974.629) / 7949.258 * 8 + 1)))
+        grid_value = f"{chr(64 + grid_x)}-{grid_z}"
+
+        return converted_sav["PlayerSavePos"] + [grid_value]
+
+    def update_coordinates_clicked(self):
+        coordinates = self.get_position()
+        if not coordinates:
+            return
+        if coordinates[3] == self.data[self.index[0]]["pattern"]:
+            self.lineEdit_3.setText(str(coordinates[0]))
+            self.lineEdit_4.setText(str(coordinates[1]))
+            self.lineEdit_5.setText(str(coordinates[2]))
+        else:
+            vanilla_save = coordinates[3] + "_" + self.data[self.index[0]]["name"].split("_")[1]
+            if self.confirm_box(f"You are not in the same zone as the save file. Import {vanilla_save}?"):
+                self.import_vanilla(vanilla_save)
 
     def create_object_clicked(self):
         random_hash = uuid.uuid4()
@@ -368,13 +440,33 @@ class Window(QMainWindow, Ui_MainWindow):
             self.listWidget.setCurrentRow(-1)
             self.update_all()
 
+    def alert_user(self):
+        if not self.unsaved_changes:
+            self.unsaved_changes = True
+            self.update()
+
+    def check_unsaved_changes(self):
+        self.lineEdit.textChanged.connect(self.alert_user)
+        self.lineEdit_2.textChanged.connect(self.alert_user)
+        self.lineEdit_3.textChanged.connect(self.alert_user)
+        self.lineEdit_4.textChanged.connect(self.alert_user)
+        self.lineEdit_5.textChanged.connect(self.alert_user)
+        self.lineEdit_7.textChanged.connect(self.alert_user)
+        self.lineEdit_8.textChanged.connect(self.alert_user)
+        self.lineEdit_9.textChanged.connect(self.alert_user)
+        self.plainTextEdit.textChanged.connect(self.alert_user)
+        self.checkBox.stateChanged.connect(self.alert_user)
+        self.checkBox_2.stateChanged.connect(self.alert_user)
+        self.checkBox_3.stateChanged.connect(self.alert_user)
+        self.spinBox.valueChanged.connect(self.alert_user)
+
     def init_events(self):
         self.pushButton.clicked.connect(self.open_custom_clicked)
         self.pushButton_2.clicked.connect(self.open_vanilla_clicked)
         self.pushButton_4.clicked.connect(self.save_map_clicked)
         self.pushButton_3.clicked.connect(self.settings_clicked)
         self.pushButton_5.clicked.connect(self.save_object_clicked)
-        self.pushButton_6.clicked.connect(self.get_position_clicked)
+        self.pushButton_6.clicked.connect(self.update_coordinates_clicked)
         self.pushButton_7.clicked.connect(self.create_object_clicked)
         self.pushButton_8.clicked.connect(self.delete_object_clicked)
         self.pushButton_9.clicked.connect(self.save_yml_clicked)
